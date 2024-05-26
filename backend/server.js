@@ -1,36 +1,95 @@
-const express = require("express");
-const app = express();
-const port = 5000;
 const https = require("https");
-const cors = require("cors");
-const url = `https://dummyjson.com/products`;
+const fs = require("fs");
+const path = require("path");
 
-app.use(cors());
+// Path to your SSL certificate and key
+const options = {
+  key: fs.readFileSync(path.join(__dirname, "key.pem")),
+  cert: fs.readFileSync(path.join(__dirname, "cert.pem")),
+};
 
-app.get("/products", (req, res) => {
-  https
-    .get(url, (apiRes) => {
-      let data = "";
+// Function to make a request to an external API
+const fetchExternalApi = (callback) => {
+  const apiOptions = {
+    hostname: "dummyjson.com",
+    path: "/products",
+    method: "GET",
+  };
 
-      apiRes.on("data", (chunk) => {
-        data += chunk;
-      });
+  const req = https.request(apiOptions, (res) => {
+    let data = "";
 
-      apiRes.on("end", () => {
-        try {
-          const products = JSON.parse(data).products;
-          res.json({ products });
-        } catch (error) {
-          res.status(500).json({ error: "Failed to parse products data" });
-        }
-      });
-    })
-    .on("error", (error) => {
-      console.error("Error fetching the products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
+    // A chunk of data has been received.
+    res.on("data", (chunk) => {
+      data += chunk;
     });
+
+    // The whole response has been received. Print out the result.
+    res.on("end", () => {
+      try {
+        const parsedData = JSON.parse(data);
+        callback(null, parsedData);
+      } catch (error) {
+        callback(error, null);
+      }
+    });
+  });
+
+  req.on("error", (e) => {
+    callback(e, null);
+  });
+
+  req.end();
+};
+
+// Create an HTTPS server
+const server = https.createServer(options, (req, res) => {
+  // Log the incoming request method and URL
+  console.log(`${req.method} ${req.url}`);
+
+  // Set CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/") {
+    fetchExternalApi((error, data) => {
+      if (error) {
+        console.error("Error fetching external API:", error);
+        res.writeHead(500);
+        res.end("Error fetching external API");
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      }
+    });
+  } else {
+    res.writeHead(404);
+    res.end("Not Found");
+  }
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+// Define the port the server will listen on
+const port = 8443; // You can use 443 if you have appropriate permissions
+
+// Start the server with error handling
+server.listen(port, (err) => {
+  if (err) {
+    console.error("Failed to start server:", err);
+    return;
+  }
+  console.log(`Server is listening on port ${port}`);
+});
+
+server.on("error", (err) => {
+  console.error("Server error:", err);
 });

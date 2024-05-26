@@ -11,7 +11,7 @@ const ProductList = () => {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState({ start: 0, end: initialCount });
   const [visibleCount, setVisibleCount] = useState(initialCount);
-  const url = "http://localhost:5000/products";
+  const url = "https://localhost:8443";
   useEffect(() => {
     axios
       .get(url)
@@ -55,10 +55,13 @@ const ProductList = () => {
             <img
               height={300}
               width={300}
-              src={product.images}
+              src={product.images[0]}
               alt={product.thumbnail}
             />
             {product?.title}
+            <div>
+              <p>{product?.description}</p>
+            </div>
           </div>
         ))}
       </div>

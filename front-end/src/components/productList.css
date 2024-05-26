@@ -32,3 +32,7 @@
 .show-items {
   margin: 30px auto;
 }
+
+p {
+  color: darkblue;
+}
